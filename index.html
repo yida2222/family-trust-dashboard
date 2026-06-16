@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Family Trust Dashboard · SafelyYou</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,16..72,400;0,16..72,500;0,16..72,600;1,16..72,400&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { 50:'#F2F7F5',100:'#E0EEEA',200:'#C3DDD5',300:'#9CC6BA',400:'#6FA89A',500:'#4E8C7D',600:'#3C7163',700:'#305A4F',800:'#284A41',900:'#223D36' },
+          sand:  { 50:'#FAF7F2',100:'#F4EFE7',200:'#ECE4D8',300:'#DDD2C2' },
+          ink:   { 700:'#4A453E',800:'#332F2A',900:'#221F1B' },
+        },
+        fontFamily: {
+          sans: ['Inter','ui-sans-serif','system-ui','sans-serif'],
+          serif: ['Newsreader','ui-serif','Georgia','serif'],
+        },
+        boxShadow: { soft:'0 1px 2px rgba(34,31,27,.05)', lift:'0 6px 24px rgba(34,31,27,.08)' },
+      }
+    }
+  }
+</script>
+<style>
+  html{ -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  body{ font-family:'Inter',sans-serif; }
+  .font-serif{ font-family:'Newsreader',Georgia,serif; }
+  ::selection{ background:#C3DDD5; }
+  /* gentle fade-in for tab content */
+  @keyframes fadeUp { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
+  .fade-up{ animation:fadeUp .28s ease both; }
+  .no-scrollbar::-webkit-scrollbar{ display:none; }
+  .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+</style>
+</head>
+<body class="bg-sand-50 text-ink-800">
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+/* ----------------------------------------------------------------
+   MOCK DATA  (no backend) — keyed by month so the selector is live
+-----------------------------------------------------------------*/
+const MONTHS = [
+  { id:'2026-06', label:'June 2026' },
+  { id:'2026-05', label:'May 2026' },
+  { id:'2026-04', label:'April 2026' },
+  { id:'2026-03', label:'March 2026' },
+];
+
+const wellness = (sleep, night, mobility, engage) => ({
+  sleep:      { key:'sleep',      label:'Sleep quality',   icon:'moon',     value:sleep[0],    delta:sleep[1],    tone:sleep[1]>=0?'good':'watch', series:sleep[2],    plain:'How restful her nights have been.' },
+  night:      { key:'night',      label:'Night activity',  icon:'clock',    value:night[0],    delta:night[1],    tone:'watch',                     series:night[2],    plain:'Movement detected overnight. Some is normal.' },
+  mobility:   { key:'mobility',   label:'Mobility',        icon:'activity', value:mobility[0], delta:mobility[1], tone:mobility[1]>=0?'good':'watch',series:mobility[2],plain:'How steadily she is moving day to day.' },
+  engagement: { key:'engagement', label:'Daily engagement',icon:'heart',    value:engage[0],   delta:engage[1],   tone:engage[1]>=0?'good':'watch', series:engage[2],   plain:'Participation in meals, activities, and visits.' },
+});
+
+const DATA = {
+  '2026-06': {
+    status:'Stable · Improving', statusTone:'good',
+    safety:{ falls:1, nearFalls:3, responseMin:2.4, repeatRisk:-18 },
+    wellness: wellness([79,+5,[69,71,70,74,74,79]], [46,+3,[38,40,39,43,43,46]], [67,+8,[54,57,55,60,59,67]], [72,+2,[66,67,69,70,70,72]]),
+    actions:[
+      { title:'Evening check-in added',        date:'Jun 6',  status:'Completed',   note:'A caregiver now checks in with Margaret before bedtime.' },
+      { title:'Bedside setup adjusted',         date:'Jun 7',  status:'Completed',   note:'Lighting and a bed-exit cue were repositioned for easier nighttime movement.' },
+      { title:'Toileting schedule updated',     date:'Jun 9',  status:'Completed',   note:'Proactive support added during overnight hours.' },
+      { title:'PT / OT review recommended',     date:'Jun 18', status:'Recommended', note:'Care team suggests a mobility assessment with physical/occupational therapy.' },
+      { title:'Family notified',                date:'Jun 6',  status:'Completed',   note:'You were informed about the incident and the plan the same day.' },
+    ],
+    narrative:'Margaret had one detected fall this month. The care team reviewed the incident, adjusted her evening routine, and added additional check-ins. Her night activity remains slightly elevated, but mobility indicators improved compared with last month.',
+  },
+  '2026-05': {
+    status:'Stable', statusTone:'stable',
+    safety:{ falls:2, nearFalls:4, responseMin:2.7, repeatRisk:-9 },
+    wellness: wellness([74,+3,[66,68,67,70,71,74]], [43,-2,[47,46,45,44,45,43]], [59,+4,[50,52,51,55,55,59]], [70,+1,[64,66,67,68,69,70]]),
+    actions:[
+      { title:'Hydration prompts added',     date:'May 4',  status:'Completed',   note:'Afternoon reminders introduced to support steadiness.' },
+      { title:'Mobility check scheduled',    date:'May 12', status:'Completed',   note:'Weekly walking support added with a caregiver.' },
+      { title:'Family notified',             date:'May 16', status:'Completed',   note:'Monthly summary shared with the family.' },
+    ],
+    narrative:'Margaret had two detected falls in May, both without injury. The care team added hydration prompts and a weekly mobility check. Sleep quality continued a gentle upward trend.',
+  },
+  '2026-04': {
+    status:'Stable', statusTone:'stable',
+    safety:{ falls:1, nearFalls:4, responseMin:2.9, repeatRisk:-7 },
+    wellness: wellness([71,+2,[65,66,68,69,69,71]], [45,+1,[43,44,44,45,44,45]], [55,+2,[49,51,52,53,53,55]], [69,+2,[62,64,66,67,67,69]]),
+    actions:[
+      { title:'Room pathway cleared',  date:'Apr 8',  status:'Completed', note:'Furniture rearranged to widen her walking path.' },
+      { title:'Footwear reviewed',     date:'Apr 15', status:'Completed', note:'Non-slip footwear recommended and provided.' },
+      { title:'Family notified',       date:'Apr 17', status:'Completed', note:'Monthly summary shared with the family.' },
+    ],
+    narrative:'A quiet month. One detected fall, with response times holding steady. Small environment changes were made to keep Margaret’s walking paths clear and safe.',
+  },
+  '2026-03': {
+    status:'Stabilizing', statusTone:'watch',
+    safety:{ falls:2, nearFalls:5, responseMin:3.1, repeatRisk:-4 },
+    wellness: wellness([67,-1,[68,67,66,67,68,67]], [48,+2,[44,45,46,47,46,48]], [52,+1,[48,49,50,51,51,52]], [66,-1,[67,66,67,65,66,66]]),
+    actions:[
+      { title:'Baseline care plan set',     date:'Mar 3',  status:'Completed', note:'Initial safety and wellness baseline established with SafelyYou.' },
+      { title:'Night monitoring enabled',   date:'Mar 5',  status:'Completed', note:'Fall detection and near-fall alerts activated for her room.' },
+      { title:'Family onboarding call',     date:'Mar 10', status:'Completed', note:'The care team walked the family through this dashboard.' },
+    ],
+    narrative:'Margaret’s first full month with SafelyYou. The care team set a baseline and enabled night monitoring. This early period helps the team learn her routines so support can be tailored over time.',
+  },
+};
+
+const PRIVACY = [
+  { icon:'eyeoff',   title:'No video is shared with families', body:'Families never see camera footage. Video stays securely within the clinical care team and is used only to understand and prevent incidents.' },
+  { icon:'doc',      title:'You receive summarized insights', body:'This dashboard shows trends and care actions in plain language — not raw data or medical records.' },
+  { icon:'lock',     title:'Clinical details stay with the team', body:'Detailed medical assessments and protected health information remain with the licensed care staff.' },
+  { icon:'sparkline',title:'Data improves her care planning', body:'Patterns in safety and wellness help the team personalize Margaret’s routine and respond faster.' },
+];
+
+const RESIDENT = { name:'Margaret L.', initial:'M', community:'Sunrise Memory Care' };
+
+/* ----------------------------------------------------------------
+   ICONS (inline, stroke = currentColor — calm, no flashy fills)
+-----------------------------------------------------------------*/
+function Icon({ name, className='w-5 h-5' }) {
+  const p = { fill:'none', stroke:'currentColor', strokeWidth:1.7, strokeLinecap:'round', strokeLinejoin:'round' };
+  const paths = {
+    shield:  <path {...p} d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/>,
+    handcatch: <g {...p}><path d="M7 11V6a1.5 1.5 0 013 0v4"/><path d="M10 10V5a1.5 1.5 0 013 0v5"/><path d="M13 10.5V7a1.5 1.5 0 013 0v6a5 5 0 01-5 5h-1.2a4 4 0 01-2.9-1.3L4 13.5a1.6 1.6 0 012.3-2.2L8 13"/></g>,
+    clock:   <g {...p}><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></g>,
+    trenddown: <g {...p}><path d="M4 7l6 6 3-3 7 7"/><path d="M21 12v5h-5"/></g>,
+    moon:    <path {...p} d="M20 14.5A8 8 0 119.5 4a6.5 6.5 0 0010.5 10.5z"/>,
+    activity:<path {...p} d="M3 12h4l2.5-6 4 14 2.5-8H21"/>,
+    heart:   <path {...p} d="M12 20s-7-4.4-9.2-9.1C1.3 7.8 3 5 6 5c1.9 0 3.2 1.1 4 2.3C10.8 6.1 12.1 5 14 5c3 0 4.7 2.8 3.2 5.9C19 15.6 12 20 12 20z"/>,
+    eyeoff:  <g {...p}><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 002.8 2.8"/><path d="M9.4 5.2A9.3 9.3 0 0112 5c5 0 9 4.5 9 7-.4 1-1.2 2.2-2.4 3.3M6.2 6.2C3.9 7.6 2.4 9.8 2 12c.6 1.6 2.2 4 5 5.4A9.4 9.4 0 0012 19a9 9 0 003.4-.7"/></g>,
+    doc:     <g {...p}><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 16h6"/></g>,
+    lock:    <g {...p}><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></g>,
+    sparkline: <g {...p}><path d="M4 15l4-5 3 3 5-7"/><circle cx="16" cy="6" r="0.6" fill="currentColor"/></g>,
+    download:<g {...p}><path d="M12 4v10m0 0l-4-4m4 4l4-4"/><path d="M5 18h14"/></g>,
+    message: <path {...p} d="M21 12a7.5 7.5 0 01-10.6 6.8L4 20l1.3-4.1A7.5 7.5 0 1121 12z"/>,
+    check:   <path {...p} d="M5 12.5l4.5 4.5L19 7.5"/>,
+    chevron: <path {...p} d="M6 9l6 6 6-6"/>,
+    arrowdown:<path {...p} d="M12 5v14m0 0l-5-5m5 5l5-5"/>,
+    arrowup: <path {...p} d="M12 19V5m0 0l-5 5m5-5l5 5"/>,
+    dot:     <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>,
+    bell:    <g {...p}><path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 19a2 2 0 004 0"/></g>,
+  };
+  return <svg viewBox="0 0 24 24" className={className} aria-hidden="true">{paths[name]}</svg>;
+}
+
+/* ----------------------------------------------------------------
+   SMALL UI PRIMITIVES
+-----------------------------------------------------------------*/
+function Card({ className='', children, hover=true }) {
+  // Let callers override background/border without losing to the default `bg-white`
+  // (Tailwind resolves same-specificity conflicts by CSS source order, not class order).
+  const bg = /\bbg-/.test(className) ? '' : 'bg-white';
+  const bd = /\bborder-/.test(className) ? '' : 'border-sand-200';
+  return (
+    <div className={`${bg} rounded-2xl border ${bd} shadow-soft ${hover?'transition-shadow duration-200 hover:shadow-lift':''} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function SectionLabel({ children }) {
+  return <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-700/55">{children}</p>;
+}
+
+const TONE = {
+  good:  { pill:'bg-brand-50 text-brand-700 border-brand-100',  dot:'bg-brand-500',  text:'text-brand-700' },
+  stable:{ pill:'bg-sand-100 text-ink-700 border-sand-200',     dot:'bg-brand-400',  text:'text-ink-700' },
+  watch: { pill:'bg-amber-50 text-amber-700 border-amber-100',  dot:'bg-amber-400',  text:'text-amber-700' },
+};
+
+function StatusPill({ status, tone }) {
+  const t = TONE[tone] || TONE.stable;
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium ${t.pill}`}>
+      <span className={`relative flex h-2 w-2`}>
+        <span className={`absolute inline-flex h-full w-full rounded-full ${t.dot} opacity-40 animate-ping`} style={{animationDuration:'2.4s'}}></span>
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${t.dot}`}></span>
+      </span>
+      {status}
+    </span>
+  );
+}
+
+function DeltaPill({ value, tone, suffix='' }) {
+  const t = TONE[tone] || TONE.good;
+  const up = value >= 0;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold ${t.text}`}>
+      <Icon name={up?'arrowup':'arrowdown'} className="w-3.5 h-3.5" />
+      {Math.abs(value)}{suffix}
+    </span>
+  );
+}
+
+/* calm SVG line chart with soft area fill */
+function LineChart({ series, tone='good', id }) {
+  const W=240, H=64, pad=6;
+  const min=Math.min(...series), max=Math.max(...series);
+  const span=(max-min)||1;
+  const stroke = tone==='watch' ? '#C99A4A' : '#4E8C7D';
+  const fill   = tone==='watch' ? '#C99A4A' : '#4E8C7D';
+  const pts = series.map((v,i)=>{
+    const x = pad + i*(W-2*pad)/(series.length-1);
+    const y = pad + (1-(v-min)/span)*(H-2*pad);
+    return [x,y];
+  });
+  const line = pts.map(([x,y])=>`${x},${y}`).join(' ');
+  const area = `${pad},${H-pad} ${line} ${W-pad},${H-pad}`;
+  const last = pts[pts.length-1];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={`g-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={fill} stopOpacity="0.16"/>
+          <stop offset="100%" stopColor={fill} stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <polygon points={area} fill={`url(#g-${id})`} />
+      <polyline points={line} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
+      <circle cx={last[0]} cy={last[1]} r="3.2" fill="#fff" stroke={stroke} strokeWidth="2" vectorEffect="non-scaling-stroke"/>
+    </svg>
+  );
+}
+
+/* ----------------------------------------------------------------
+   PANELS
+-----------------------------------------------------------------*/
+function SafetyPanel({ d }) {
+  const s = d.safety;
+  const cards = [
+    { icon:'shield',    label:'Falls detected',       value:s.falls,            sub:'reviewed by care team',  tone:'stable' },
+    { icon:'handcatch', label:'Near-fall events',     value:s.nearFalls,        sub:'caught proactively',     tone:'stable' },
+    { icon:'clock',     label:'Avg staff response',   value:`${s.responseMin}`, unit:'min', sub:'faster than 3.0 min goal', tone:'good' },
+    { icon:'trenddown', label:'Repeat incident risk', value:`${Math.abs(s.repeatRisk)}%`, sub:'vs last month', tone:'good', delta:s.repeatRisk, deltaLabel:'lower' },
+  ];
+  return (
+    <div className="fade-up space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((c,i)=>(
+          <Card key={i} className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-brand-50 text-brand-600"><Icon name={c.icon} className="w-5 h-5"/></span>
+              {typeof c.delta==='number' && <DeltaPill value={c.delta} tone="good" suffix="%" />}
+            </div>
+            <div className="mt-3 flex items-baseline gap-1">
+              <span className="text-3xl font-semibold text-ink-900 tabular-nums">{c.value}</span>
+              {c.unit && <span className="text-sm text-ink-700/60 font-medium">{c.unit}</span>}
+            </div>
+            <p className="mt-0.5 text-sm font-medium text-ink-800">{c.label}</p>
+            <p className="text-xs text-ink-700/55 mt-0.5">{c.sub}</p>
+          </Card>
+        ))}
+      </div>
+      <Card hover={false} className="p-4 bg-brand-50/50 border-brand-100">
+        <div className="flex gap-3">
+          <Icon name="shield" className="w-5 h-5 text-brand-600 shrink-0 mt-0.5"/>
+          <p className="text-sm text-ink-700 leading-relaxed">
+            <span className="font-semibold text-ink-800">What this means for you. </span>
+            A “near-fall” is a risky moment the system noticed before anyone got hurt — each one helps the team prevent the next fall. Response time is how quickly a caregiver reached Margaret after an alert.
+          </p>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function WellnessPanel({ d }) {
+  const items = Object.values(d.wellness);
+  return (
+    <div className="fade-up grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {items.map((m)=>(
+        <Card key={m.key} className="p-5">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${m.tone==='watch'?'bg-amber-50 text-amber-600':'bg-brand-50 text-brand-600'}`}><Icon name={m.icon} className="w-5 h-5"/></span>
+              <div>
+                <p className="text-sm font-semibold text-ink-800">{m.label}</p>
+                <p className="text-xs text-ink-700/55">vs last month</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-semibold text-ink-900 tabular-nums leading-none">{m.value}<span className="text-sm text-ink-700/50 font-medium">/100</span></div>
+              <div className="mt-1"><DeltaPill value={m.delta} tone={m.tone} /></div>
+            </div>
+          </div>
+          <div className="mt-3"><LineChart series={m.series} tone={m.tone} id={m.key}/></div>
+          <p className="mt-2 text-xs text-ink-700/60 leading-relaxed">{m.plain}{m.key==='night' && m.tone==='watch' ? ' Currently slightly elevated — the team is watching it.' : ''}</p>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+const STATUS_STYLE = {
+  Completed:   'bg-brand-50 text-brand-700 border-brand-100',
+  Recommended: 'bg-amber-50 text-amber-700 border-amber-100',
+  'In progress':'bg-sand-100 text-ink-700 border-sand-200',
+};
+
+function CareActionsPanel({ d }) {
+  return (
+    <div className="fade-up">
+      <Card hover={false} className="p-5 sm:p-6">
+        <ol className="relative">
+          {d.actions.map((a,i)=>{
+            const done = a.status==='Completed';
+            const isLast = i===d.actions.length-1;
+            return (
+              <li key={i} className="relative flex gap-4 pb-6 last:pb-0">
+                {!isLast && <span className="absolute left-[15px] top-8 bottom-0 w-px bg-sand-200" aria-hidden="true"></span>}
+                <span className={`relative z-10 flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${done?'bg-brand-500 text-white':'bg-white border-2 border-amber-300 text-amber-500'}`}>
+                  <Icon name={done?'check':'bell'} className="w-4 h-4"/>
+                </span>
+                <div className="flex-1 -mt-0.5">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <p className="text-[15px] font-semibold text-ink-800">{a.title}</p>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_STYLE[a.status]}`}>{a.status}</span>
+                    <span className="text-xs text-ink-700/45">{a.date}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-ink-700/75 leading-relaxed">{a.note}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </Card>
+    </div>
+  );
+}
+
+function PrivacyPanel() {
+  return (
+    <div className="fade-up space-y-4">
+      <Card hover={false} className="p-5 bg-brand-600 border-brand-600 text-white">
+        <div className="flex gap-3 items-start">
+          <Icon name="lock" className="w-6 h-6 shrink-0 mt-0.5 text-brand-100"/>
+          <div>
+            <p className="font-serif text-xl">Built to protect Margaret’s dignity</p>
+            <p className="text-sm text-brand-50/90 mt-1 leading-relaxed">You get the reassurance of knowing she’s safe — without surveillance of her private life. Here’s exactly what is and isn’t shared.</p>
+          </div>
+        </div>
+      </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {PRIVACY.map((p,i)=>(
+          <Card key={i} className="p-5">
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sand-100 text-brand-600"><Icon name={p.icon} className="w-5 h-5"/></span>
+            <p className="mt-3 text-[15px] font-semibold text-ink-800">{p.title}</p>
+            <p className="mt-1 text-sm text-ink-700/70 leading-relaxed">{p.body}</p>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+   MESSAGE MODAL
+-----------------------------------------------------------------*/
+function MessageModal({ open, onClose }) {
+  const [sent, setSent] = useState(false);
+  const [text, setText] = useState('Hi, I’d love an update on how Margaret is settling in after the recent routine changes. Thank you!');
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-ink-900/30 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-lift p-6 fade-up">
+        {!sent ? (
+          <React.Fragment>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-brand-50 text-brand-600"><Icon name="message"/></span>
+              <div>
+                <p className="font-serif text-lg text-ink-900">Message the care team</p>
+                <p className="text-xs text-ink-700/55">{RESIDENT.community} · usually replies within 1 business day</p>
+              </div>
+            </div>
+            <textarea value={text} onChange={e=>setText(e.target.value)} rows="4"
+              className="mt-4 w-full rounded-xl border border-sand-200 p-3 text-sm text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none"/>
+            <div className="mt-4 flex gap-2 justify-end">
+              <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium text-ink-700 hover:bg-sand-100 transition-colors">Cancel</button>
+              <button onClick={()=>setSent(true)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors">Send message</button>
+            </div>
+          </React.Fragment>
+        ) : (
+          <div className="text-center py-4">
+            <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-50 text-brand-600 mx-auto"><Icon name="check" className="w-7 h-7"/></span>
+            <p className="font-serif text-xl text-ink-900 mt-4">Message sent</p>
+            <p className="text-sm text-ink-700/65 mt-1 max-w-xs mx-auto">The care team at {RESIDENT.community} will get back to you soon. You’ll be notified by email.</p>
+            <button onClick={()=>{ setSent(false); onClose(); }} className="mt-5 px-5 py-2 rounded-xl text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors">Done</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+   HEADER
+-----------------------------------------------------------------*/
+function Header({ monthId, setMonthId, d, onDownload, onMessage }) {
+  const monthLabel = MONTHS.find(m=>m.id===monthId).label;
+  return (
+    <header className="border-b border-sand-200 bg-white/70 backdrop-blur sticky top-0 z-30">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* top strip */}
+        <div className="flex items-center justify-between py-3">
+          <div className="flex items-center gap-2 text-brand-700">
+            <Icon name="shield" className="w-5 h-5"/>
+            <span className="font-semibold tracking-tight text-sm">SafelyYou</span>
+            <span className="hidden sm:inline text-ink-700/30">/</span>
+            <span className="hidden sm:inline text-ink-700/55 text-sm">Family Portal</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <select value={monthId} onChange={e=>setMonthId(e.target.value)}
+                aria-label="Select month"
+                className="appearance-none cursor-pointer rounded-xl border border-sand-200 bg-white pl-3 pr-9 py-2 text-sm font-medium text-ink-800 hover:bg-sand-50 focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors">
+                {MONTHS.map(m=> <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+              <Icon name="chevron" className="w-4 h-4 text-ink-700/50 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"/>
+            </div>
+            <button onClick={onDownload} title="Download Monthly Summary"
+              className="inline-flex items-center gap-2 rounded-xl border border-sand-200 bg-white px-3 py-2 text-sm font-medium text-ink-800 hover:bg-sand-50 transition-colors">
+              <Icon name="download" className="w-4 h-4"/><span className="hidden sm:inline">Download</span>
+            </button>
+            <button onClick={onMessage}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 transition-colors shadow-soft">
+              <Icon name="message" className="w-4 h-4"/><span className="hidden sm:inline">Message Care Team</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      {/* title block */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-5 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-100 text-brand-700 font-serif text-2xl shadow-soft">{RESIDENT.initial}</span>
+            <div>
+              <h1 className="font-serif text-2xl sm:text-[28px] text-ink-900 leading-tight">Family Trust Dashboard</h1>
+              <p className="text-sm text-ink-700/70 mt-0.5">
+                <span className="font-medium text-ink-800">{RESIDENT.name}</span> · {RESIDENT.community} · {monthLabel}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-start sm:items-end gap-1">
+            <SectionLabel>Overall status</SectionLabel>
+            <StatusPill status={d.status} tone={d.statusTone}/>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ----------------------------------------------------------------
+   TABS
+-----------------------------------------------------------------*/
+const TABS = [
+  { id:'safety',  label:'Safety',       icon:'shield' },
+  { id:'wellness',label:'Wellness',     icon:'activity' },
+  { id:'care',    label:'Care Actions', icon:'check' },
+  { id:'privacy', label:'Privacy',      icon:'lock' },
+];
+
+function Tabs({ active, setActive }) {
+  return (
+    <div className="flex gap-1 overflow-x-auto no-scrollbar p-1 bg-sand-100 rounded-2xl border border-sand-200">
+      {TABS.map(t=>{
+        const on = active===t.id;
+        return (
+          <button key={t.id} onClick={()=>setActive(t.id)}
+            className={`flex items-center gap-2 whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+              ${on ? 'bg-white text-brand-700 shadow-soft' : 'text-ink-700/65 hover:text-ink-800 hover:bg-white/60'}`}>
+            <Icon name={t.icon} className="w-4 h-4"/>{t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+   APP
+-----------------------------------------------------------------*/
+function buildSummary(monthId, d){
+  const m = MONTHS.find(x=>x.id===monthId).label;
+  const w = d.wellness;
+  const L = [];
+  L.push('SafelyYou — Family Trust Dashboard');
+  L.push('Monthly Summary');
+  L.push('========================================');
+  L.push(`Resident:   ${RESIDENT.name}`);
+  L.push(`Community:  ${RESIDENT.community}`);
+  L.push(`Month:      ${m}`);
+  L.push(`Status:     ${d.status}`);
+  L.push('');
+  L.push('SAFETY');
+  L.push(`  Falls detected ............ ${d.safety.falls}`);
+  L.push(`  Near-fall events .......... ${d.safety.nearFalls}`);
+  L.push(`  Avg staff response ........ ${d.safety.responseMin} min`);
+  L.push(`  Repeat incident risk ...... down ${Math.abs(d.safety.repeatRisk)}% vs last month`);
+  L.push('');
+  L.push('WELLNESS (score /100, change vs last month)');
+  [w.sleep,w.night,w.mobility,w.engagement].forEach(x=>{
+    L.push(`  ${(x.label+' ').padEnd(20,'.')} ${x.value}  (${x.delta>=0?'+':''}${x.delta})`);
+  });
+  L.push('');
+  L.push('CARE TEAM ACTIONS');
+  d.actions.forEach(a=> L.push(`  [${a.status}] ${a.title} (${a.date})`));
+  L.push('');
+  L.push('SUMMARY');
+  L.push('  '+d.narrative.replace(/(.{72}\S*)\s/g,'$1\n  '));
+  L.push('');
+  L.push('Privacy: No video is shared with families. You receive summarized');
+  L.push('care insights only; clinical details remain with the care team.');
+  return L.join('\n');
+}
+
+function App(){
+  const [monthId, setMonthId] = useState('2026-06');
+  const [tab, setTab] = useState('safety');
+  const [modal, setModal] = useState(false);
+  const d = DATA[monthId];
+
+  const onDownload = () => {
+    const text = buildSummary(monthId, d);
+    const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `SafelyYou_${RESIDENT.name.replace(/\W/g,'')}_${monthId}.txt`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="min-h-screen">
+      <Header monthId={monthId} setMonthId={setMonthId} d={d} onDownload={onDownload} onMessage={()=>setModal(true)} />
+
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        {/* Monthly narrative — always visible, the heart of family trust */}
+        <Card hover={false} className="p-6 bg-gradient-to-br from-white to-brand-50/40">
+          <div className="flex items-center gap-2 mb-2">
+            <Icon name="sparkline" className="w-4 h-4 text-brand-600"/>
+            <SectionLabel>This month, in plain words</SectionLabel>
+          </div>
+          <p className="font-serif text-lg sm:text-xl text-ink-900 leading-relaxed max-w-3xl">{d.narrative}</p>
+          <p className="text-xs text-ink-700/50 mt-3">Prepared by the {RESIDENT.community} care team with SafelyYou.</p>
+        </Card>
+
+        {/* Tabs */}
+        <div>
+          <Tabs active={tab} setActive={setTab}/>
+          <div className="mt-5">
+            {tab==='safety'   && <SafetyPanel d={d}/>}
+            {tab==='wellness' && <WellnessPanel d={d}/>}
+            {tab==='care'     && <CareActionsPanel d={d}/>}
+            {tab==='privacy'  && <PrivacyPanel/>}
+          </div>
+        </div>
+
+        {/* Footer actions + reassurance */}
+        <Card hover={false} className="p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2.5 text-sm text-ink-700/70">
+              <Icon name="lock" className="w-4 h-4 text-brand-600 shrink-0"/>
+              <span>Private by design — <span className="text-ink-800 font-medium">no video is ever shared with families.</span></span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={onDownload}
+                className="inline-flex items-center gap-2 rounded-xl border border-sand-200 bg-white px-4 py-2.5 text-sm font-medium text-ink-800 hover:bg-sand-50 transition-colors">
+                <Icon name="download" className="w-4 h-4"/>Download Monthly Summary
+              </button>
+              <button onClick={()=>setModal(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors shadow-soft">
+                <Icon name="message" className="w-4 h-4"/>Message Care Team
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        <p className="text-center text-xs text-ink-700/40 pb-4">
+          SafelyYou Family Trust Dashboard · Demonstration prototype with sample data · {MONTHS.find(m=>m.id===monthId).label}
+        </p>
+      </main>
+
+      <MessageModal open={modal} onClose={()=>setModal(false)} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
